@@ -1,7 +1,15 @@
 {
     "manifest_version": 3,
-    "name": "Quad Splitter - Ultimate",
-    "version": "4.0",
+    "name": "Quad Splitter - Ultimate View",
+    "short_name": "Quad Split",
+    "description": "View multiple websites in a resizable, 4-way or 2-way split grid within a single tab. Includes smart navigation and dark mode.",
+    "version": "6.0",
+    "icons": {
+        "16": "icons/icon16.png",
+        "32": "icons/icon32.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    },
     "permissions": [
         "tabs",
         "storage",
@@ -23,22 +31,36 @@
         ]
     },
     "action": {
-        "default_popup": "popup.html"
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icons/icon16.png",
+            "32": "icons/icon32.png",
+            "48": "icons/icon48.png",
+            "128": "icons/icon128.png"
+        }
     },
     "commands": {
         "launch-split-view": {
             "suggested_key": {
-                "default": "Alt+Shift+S",
-                "mac": "Alt+Shift+S"
+                "default": "Alt+S",
+                "mac": "Alt+S"
             },
-            "description": "Launch Quad Split View"
+            "description": "Launch Quad View (4)"
+        },
+        "launch-dual-view": {
+            "suggested_key": {
+                "default": "Alt+D",
+                "mac": "Alt+D"
+            },
+            "description": "Launch Dual View (2)"
         },
         "toggle-nav": {
             "suggested_key": {
-                "default": "Alt+Shift+H",
-                "mac": "Alt+Shift+H"
+                "default": "Alt+H",
+                "mac": "Alt+H"
             },
             "description": "Toggle Navigation Bars"
         }
-    }
+    },
+    "offline_enabled": true
 }

@@ -1,19 +1,31 @@
 // --- Settings & Init ---
 const container = document.getElementById('main-container');
+const navHistory = { 0: [], 1: [], 2: [], 3: [] };
 
-// State for back button history: index -> array of urls
-const navHistory = {
-    0: [], 1: [], 2: [], 3: []
-};
+// Get Mode from URL
+const urlParams = new URLSearchParams(window.location.search);
+const MODE = urlParams.get('mode') || 'quad'; // 'quad' or 'dual'
+
+function applyLayoutMode() {
+    if (MODE === 'dual') {
+        // Hide bottom quadrants and horizontal splitters
+        document.getElementById('split-h-left').style.display = 'none';
+        document.getElementById('split-h-right').style.display = 'none';
+        document.getElementById('quad-2').style.display = 'none';
+        document.getElementById('quad-3').style.display = 'none';
+        // Ensure top quadrants take full height
+        document.getElementById('quad-0').style.flex = '1 0 100%';
+        document.getElementById('quad-1').style.flex = '1 0 100%';
+    }
+}
 
 function applySettings() {
     chrome.storage.local.get(['showNav', 'darkMode'], (res) => {
-        const showNav = res.showNav !== false; // Default True
+        const showNav = res.showNav !== false;
         const isDarkMode = res.darkMode !== false;
 
         // Toggle Nav Bars
-        const navBars = document.querySelectorAll('.nav-bar');
-        navBars.forEach(nav => {
+        document.querySelectorAll('.nav-bar').forEach(nav => {
             nav.style.display = showNav ? 'flex' : 'none';
         });
 
@@ -22,81 +34,57 @@ function applySettings() {
             document.body.style.background = '#202124';
             document.querySelectorAll('.quadrant').forEach(el => el.style.background = '#35363a');
             document.querySelectorAll('.nav-bar').forEach(el => el.style.background = '#35363a');
-            document.querySelectorAll('.splitter-v, .splitter-h').forEach(el => {
-                el.style.background = '#202124';
-            });
             document.querySelectorAll('.url-input').forEach(el => el.style.color = '#e8eaed');
+            // Splitters
+            document.querySelectorAll('.splitter-v, .splitter-h').forEach(el => el.style.background = '#202124');
         } else {
             document.body.style.background = '#f1f3f4';
             document.querySelectorAll('.quadrant').forEach(el => el.style.background = '#fff');
             document.querySelectorAll('.nav-bar').forEach(el => el.style.background = '#f1f3f4');
-            document.querySelectorAll('.splitter-v, .splitter-h').forEach(el => {
-                el.style.background = '#dadce0';
-            });
             document.querySelectorAll('.url-input').forEach(el => el.style.color = '#333');
+            // Splitters
+            document.querySelectorAll('.splitter-v, .splitter-h').forEach(el => el.style.background = '#dadce0');
         }
     });
 }
 
-// Listen for storage changes
 chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
-        if (changes.showNav || changes.darkMode) {
-            applySettings();
-        }
+        if (changes.showNav || changes.darkMode) applySettings();
     }
 });
 
-
-// --- URL & Initialization Logic ---
+// --- URL Logic ---
 function normalizeUrl(input) {
     input = input.trim();
     if (!input) return "about:blank";
-
-    // TLD Guessing
     const tlds = ['.com', '.org', '.net', '.edu', '.gov', '.io', '.co', '.ai'];
-    const isUrlLike = tlds.some(tld => input.includes(tld)) ||
-        input.startsWith('http://') ||
-        input.startsWith('https://') ||
-        input.startsWith('www.');
-
-    if (input.includes(' ') || !isUrlLike) {
-        return `https://www.google.com/search?q=${encodeURIComponent(input)}&igu=1`;
-    }
-
-    if (!input.match(/^[a-zA-Z]+:\/\//)) {
-        return "https://" + input;
-    }
+    const isUrlLike = tlds.some(tld => input.includes(tld)) || input.startsWith('http') || input.startsWith('www.');
+    if (input.includes(' ') || !isUrlLike) return `https://www.google.com/search?q=${encodeURIComponent(input)}&igu=1`;
+    if (!input.match(/^[a-zA-Z]+:\/\//)) return "https://" + input;
     return input;
 }
 
 function updateBackBtn(index) {
     const btn = document.getElementById(`back-${index}`);
-    // Enable if history has more than 1 item (current + at least one prev)
-    // Actually, history stores PREVIOUS pages. Current page is in iframe.
-    // So if history.length > 0, we can go back.
-    btn.disabled = navHistory[index].length === 0;
+    if (btn) btn.disabled = navHistory[index].length === 0;
 }
 
 function loadFrame(index, url, isBackNav = false) {
     const frame = document.getElementById(`frame-${index}`);
+    if (!frame) return; // Safety for dual mode or hidden elements
+
     const input = document.getElementById(`input-${index}`);
     const finalUrl = normalizeUrl(url);
 
-    // If THIS load is NOT a back navigation, push the CURRENT url to history before loading new one
-    if (!isBackNav) {
-        // Only push if there IS a current src (and it's not empty/initial)
-        if (frame.src && frame.src !== '' && frame.src !== 'about:blank') {
-            navHistory[index].push(frame.src);
-        }
+    if (!isBackNav && frame.src && frame.src !== '' && frame.src !== 'about:blank') {
+        navHistory[index].push(frame.src);
     }
 
     input.value = finalUrl;
     frame.src = finalUrl;
-
     updateBackBtn(index);
 
-    // Update storage
     chrome.storage.local.get(['splitUrls'], (result) => {
         const urls = result.splitUrls || [];
         urls[index] = finalUrl;
@@ -107,29 +95,28 @@ function loadFrame(index, url, isBackNav = false) {
 function goBack(index) {
     const history = navHistory[index];
     if (history.length > 0) {
-        const prevUrl = history.pop();
-        loadFrame(index, prevUrl, true); // true = don't push current to history again
+        loadFrame(index, history.pop(), true);
     }
 }
 
 function reloadFrame(index) {
     const frame = document.getElementById(`frame-${index}`);
-    frame.src = frame.src;
+    if (frame) frame.src = frame.src;
 }
 
 // Initial Load
 chrome.storage.local.get(['splitUrls'], (result) => {
+    applyLayoutMode();
     applySettings();
 
     const urls = result.splitUrls || [];
+    const count = MODE === 'dual' ? 2 : 4;
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < count; i++) {
         const url = urls[i] || "about:blank";
-        // Reset history on fresh load
         navHistory[i] = [];
         loadFrame(i, url);
 
-        // Listeners
         const input = document.getElementById(`input-${i}`);
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -139,64 +126,48 @@ chrome.storage.local.get(['splitUrls'], (result) => {
         });
         document.getElementById(`reload-${i}`).addEventListener('click', () => reloadFrame(i));
         document.getElementById(`back-${i}`).addEventListener('click', () => goBack(i));
-
         input.addEventListener('focus', () => setTimeout(() => input.select(), 10));
     }
 });
 
-
-// --- Resizing Logic (Copied from before) ---
-
+// --- Resizing ---
 const splitV = document.getElementById('split-v-main');
 const splitHLeft = document.getElementById('split-h-left');
 const splitHRight = document.getElementById('split-h-right');
-
 const colLeft = document.getElementById('col-left');
 const colRight = document.getElementById('col-right');
-
 const quad0 = document.getElementById('quad-0');
 const quad2 = document.getElementById('quad-2');
-
 const quad1 = document.getElementById('quad-1');
 const quad3 = document.getElementById('quad-3');
 
 function makeResizable(splitter, direction, firstEl, secondEl) {
-    let isDragging = false;
+    if (!splitter) return; // layout might lack splitters (dual mode potentially? no, vertical still exists)
 
-    splitter.addEventListener('mousedown', (e) => {
-        isDragging = true;
-        document.body.classList.add('is-changing-layout');
-    });
+    let isDragging = false;
+    splitter.addEventListener('mousedown', () => { isDragging = true; document.body.classList.add('is-changing-layout'); });
 
     document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-
         if (direction === 'horizontal') {
             const containerWidth = container.offsetWidth;
-            let newLeftWidth = (e.clientX / containerWidth) * 100;
-            if (newLeftWidth < 10) newLeftWidth = 10;
-            if (newLeftWidth > 90) newLeftWidth = 90;
-            firstEl.style.flex = `0 0 ${newLeftWidth}%`;
+            let val = (e.clientX / containerWidth) * 100;
+            if (val < 10) val = 10; if (val > 90) val = 90;
+            firstEl.style.flex = `0 0 ${val}%`;
         } else {
             const col = firstEl.parentElement;
-            const colHeight = col.offsetHeight;
-            const colTop = col.getBoundingClientRect().top;
-            let relativeY = e.clientY - colTop;
-            let newTopHeightPct = (relativeY / colHeight) * 100;
-            if (newTopHeightPct < 10) newTopHeightPct = 10;
-            if (newTopHeightPct > 90) newTopHeightPct = 90;
-            firstEl.style.flex = `0 0 ${newTopHeightPct}%`;
+            let val = ((e.clientY - col.getBoundingClientRect().top) / col.offsetHeight) * 100;
+            if (val < 10) val = 10; if (val > 90) val = 90;
+            firstEl.style.flex = `0 0 ${val}%`;
         }
     });
-
-    document.addEventListener('mouseup', () => {
-        if (isDragging) {
-            isDragging = false;
-            document.body.classList.remove('is-changing-layout');
-        }
-    });
+    document.addEventListener('mouseup', () => { isDragging = false; document.body.classList.remove('is-changing-layout'); });
 }
 
 makeResizable(splitV, 'horizontal', colLeft, colRight);
-makeResizable(splitHLeft, 'vertical', quad0, quad2);
-makeResizable(splitHRight, 'vertical', quad1, quad3);
+
+// Only enable vertical resizing if NOT in dual mode (where H splitters are hidden)
+if (MODE !== 'dual') {
+    makeResizable(splitHLeft, 'vertical', quad0, quad2);
+    makeResizable(splitHRight, 'vertical', quad1, quad3);
+}

@@ -1,36 +1,32 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const splitBtn = document.getElementById('splitBtn');
+  const dualBtn = document.getElementById('dualBtn');
   const toggleNav = document.getElementById('toggleNav');
   const darkMode = document.getElementById('darkMode');
 
   // Load saved settings
   const result = await chrome.storage.local.get(['showNav', 'darkMode']);
-  toggleNav.checked = result.showNav !== false; // Default true
-  darkMode.checked = result.darkMode !== false; // Default true (implied by HTML checked)
+  toggleNav.checked = result.showNav !== false;
+  darkMode.checked = result.darkMode !== false;
 
-  // Save settings on change
   toggleNav.addEventListener('change', () => {
     chrome.storage.local.set({ showNav: toggleNav.checked });
-    // Optional: Send message to existing grid views to update instantly?
-    // For now, simpler to just require reload or check on launch/load.
   });
 
   darkMode.addEventListener('change', () => {
     chrome.storage.local.set({ darkMode: darkMode.checked });
   });
 
-  splitBtn.addEventListener('click', async () => {
-    // Collect URLs
-    const tabs = await chrome.tabs.query({ currentWindow: true, active: false });
+  // Helper to launch
+  const launch = async (mode) => {
     const allTabs = await chrome.tabs.query({ currentWindow: true });
+    const count = mode === 'dual' ? 2 : 4;
+    const urls = allTabs.slice(0, count).map(t => t.url);
 
-    // Use logic: if we are in popup, active tab is the page user is ON. 
-    // We probably want to include it? Or exclude browser ui?
+    await chrome.storage.local.set({ splitUrls: urls });
+    chrome.tabs.create({ url: `grid.html?mode=${mode}` });
+  };
 
-    const urls = allTabs.slice(0, 4).map(t => t.url);
-
-    await chrome.storage.local.set({ splitUrls: urls }); // Settings are already saved above
-
-    chrome.tabs.create({ url: 'grid.html' });
-  });
+  splitBtn.addEventListener('click', () => launch('quad'));
+  dualBtn.addEventListener('click', () => launch('dual'));
 });
