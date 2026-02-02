@@ -1,9 +1,9 @@
 {
     "manifest_version": 3,
-    "name": "Quad Splitter - Ultimate View",
-    "short_name": "Quad Split",
-    "description": "View multiple websites in a resizable, 4-way or 2-way split grid within a single tab. Includes smart navigation and dark mode.",
-    "version": "6.0",
+    "name": "Split View for Chrome",
+    "short_name": "Split View",
+    "description": "Boost productivity with Split View. View multiple tabs side-by-side (Dual View) or in a 2x2 grid (Quad View) within a single tab.",
+    "version": "7.0",
     "icons": {
         "16": "icons/icon16.png",
         "32": "icons/icon32.png",

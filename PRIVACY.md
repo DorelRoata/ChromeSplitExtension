@@ -1,9 +1,9 @@
-# Privacy Policy for Quad Splitter
+# Privacy Policy for Split View
 
 **Last Updated:** February 2, 2026
 
 ## Data Collection
-Quad Splitter ("the Extension") **does not collect, transmit, or store any user data on remote servers.**
+Split View ("the Extension") **does not collect, transmit, or store any user data on remote servers.**
 
 ## Local Storage
 The Extension uses your browser's local storage API (`chrome.storage.local`) solely to:
