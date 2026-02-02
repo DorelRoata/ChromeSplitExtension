@@ -1,0 +1,44 @@
+{
+    "manifest_version": 3,
+    "name": "Quad Splitter - Ultimate",
+    "version": "4.0",
+    "permissions": [
+        "tabs",
+        "storage",
+        "declarativeNetRequest"
+    ],
+    "host_permissions": [
+        "<all_urls>"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "declarative_net_request": {
+        "rule_resources": [
+            {
+                "id": "ruleset_1",
+                "enabled": true,
+                "path": "rules.json"
+            }
+        ]
+    },
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "commands": {
+        "launch-split-view": {
+            "suggested_key": {
+                "default": "Alt+Shift+S",
+                "mac": "Alt+Shift+S"
+            },
+            "description": "Launch Quad Split View"
+        },
+        "toggle-nav": {
+            "suggested_key": {
+                "default": "Alt+Shift+H",
+                "mac": "Alt+Shift+H"
+            },
+            "description": "Toggle Navigation Bars"
+        }
+    }
+}
