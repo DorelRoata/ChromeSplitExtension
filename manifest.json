@@ -3,12 +3,12 @@
     "name": "Split View for Chrome",
     "short_name": "Split View",
     "description": "Boost productivity with Split View. View multiple tabs side-by-side (Dual View) or in a 2x2 grid (Quad View) within a single tab.",
-    "version": "7.0",
+    "version": "7.1",
     "icons": {
-        "16": "icons/icon16.png",
-        "32": "icons/icon32.png",
-        "48": "icons/icon48.png",
-        "128": "icons/icon128.png"
+        "16": "icons/logo_16.png",
+        "32": "icons/logo_32.png",
+        "48": "icons/logo_48.png",
+        "128": "icons/logo_128.png"
     },
     "permissions": [
         "tabs",
@@ -33,10 +33,10 @@
     "action": {
         "default_popup": "popup.html",
         "default_icon": {
-            "16": "icons/icon16.png",
-            "32": "icons/icon32.png",
-            "48": "icons/icon48.png",
-            "128": "icons/icon128.png"
+            "16": "icons/logo_16.png",
+            "32": "icons/logo_32.png",
+            "48": "icons/logo_48.png",
+            "128": "icons/logo_128.png"
         }
     },
     "commands": {
