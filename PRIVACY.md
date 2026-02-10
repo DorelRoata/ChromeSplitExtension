@@ -1,21 +1,23 @@
 # Privacy Policy for Split View
 
-**Last Updated:** February 2, 2026
+**Last Updated:** February 10, 2026
 
 ## Data Collection
 Split View ("the Extension") **does not collect, transmit, or store any user data on remote servers.**
 
 ## Local Storage
 The Extension uses your browser's local storage API (`chrome.storage.local`) solely to:
-1.  Save the URLs of the tabs you are currently viewing so they can be displayed in the split grid.
-2.  Remember your preference for "Dark Mode" and "Navigation Bars".
+1. Save UI preferences (Dark Mode and Navigation Bar visibility).
+2. Save current split URLs.
+3. Save named layouts created by the user (layout name, URLs, pane count, and layout geometry).
+4. Store temporary tab-scoped split state to support accurate save/load behavior.
 
 This data stays on your device and is never sent to us or any third party.
 
 ## Permission Usage
-*   **Host Permissions (`<all_urls>`):** This permission is strictly required to allow the Extension to display *any* website you choose within the split-view grid logic (specifically, to bypass `X-Frame-Options` headers locally so the site can be viewed). We do not read or modify the content of pages for any other purpose.
-*   **Tabs:** Used to read your currently open tabs to populate the grid.
-*   **DeclarativeNetRequest:** Used to strip frame-protection headers locally to ensure websites render correctly inside the split view.
+* **Host Permissions (`<all_urls>`):** Required so users can open any site in split panes.
+* **Tabs:** Used to read currently open tabs when launching split layouts and to manage split tab state.
+* **DeclarativeNetRequest:** Used to modify frame-related response headers so sites can render in pane iframes.
 
 ## Contact
 If you have any questions about this policy, please open an issue on our GitHub repository.

@@ -49,12 +49,21 @@
       background: #1557b0;
     }
 
+    .btn:disabled {
+      background: #c1c7d0;
+      cursor: not-allowed;
+    }
+
     .btn-secondary {
       background: #5f6368;
     }
 
     .btn-secondary:hover {
       background: #4a4d51;
+    }
+
+    .btn-secondary:disabled:hover {
+      background: #c1c7d0;
     }
 
     .shortcut-label {
@@ -69,6 +78,30 @@
       border-top: 1px solid #eee;
       padding-top: 10px;
       margin-top: 10px;
+    }
+
+    .custom-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+      color: #333;
+      font-size: 12px;
+    }
+
+    .custom-row input {
+      width: 56px;
+      padding: 5px 6px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .hint-text {
+      margin: 2px 0 10px;
+      color: #5f6368;
+      font-size: 11px;
+      line-height: 1.35;
     }
 
     .checkbox-row {
@@ -97,6 +130,34 @@
       padding: 1px 4px;
       border-radius: 3px;
     }
+
+    .section-title {
+      margin: 0 0 8px;
+      font-size: 12px;
+      color: #5f6368;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    .text-input,
+    .select-input {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      padding: 7px 8px;
+      font-size: 12px;
+      color: #333;
+      background: #fff;
+      margin-bottom: 8px;
+    }
+
+    .select-input {
+      height: 32px;
+      margin-bottom: 8px;
+    }
+
   </style>
 </head>
 
@@ -115,6 +176,19 @@
       <span class="shortcut-label">Alt+D</span>
     </button>
 
+    <div class="custom-row">
+      <label for="customCount">Custom panes (1-16)</label>
+      <input id="customCount" type="number" min="1" max="16" value="6">
+    </div>
+    <button id="customBtn" class="btn btn-secondary">
+      <span>Launch Custom Split</span>
+    </button>
+
+    <button id="resetSplitsBtn" class="btn btn-secondary">
+      <span>Reset Split Sizes</span>
+    </button>
+    <div id="resetHint" class="hint-text"></div>
+
     <div class="settings-group">
       <label class="checkbox-row">
         <div><input type="checkbox" id="toggleNav"> Show Nav Bar</div>
@@ -123,6 +197,25 @@
       <label class="checkbox-row">
         <div><input type="checkbox" id="darkMode" checked> Dark Mode</div>
       </label>
+    </div>
+
+    <div class="settings-group">
+      <div class="section-title">Saved Layouts</div>
+      <input id="layoutNameInput" class="text-input" type="text" placeholder="Layout name">
+      <button id="saveLayoutBtn" class="btn btn-secondary">
+        <span>Save Current Layout</span>
+      </button>
+
+      <select id="savedLayoutsSelect" class="select-input"></select>
+
+      <button id="loadLayoutBtn" class="btn btn-secondary">
+        <span>Load Selected Layout</span>
+      </button>
+
+      <button id="deleteLayoutBtn" class="btn btn-secondary">
+        <span>Delete Selected Layout</span>
+      </button>
+      <div id="layoutHint" class="hint-text"></div>
     </div>
   </div>
   <script src="popup.js"></script>
