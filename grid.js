@@ -447,7 +447,14 @@ function renderPanes() {
 
                     pane.paneEl.style.gridRow = `${rowStart} / ${rowEnd}`;
                     pane.paneEl.style.gridColumn = `${colStart} / ${colEnd}`;
-                    paneLayoutMap.set(paneIndex, { row: position + 1, col: colStart });
+                    paneLayoutMap.set(paneIndex, {
+                        row: rowStart,
+                        col: colStart,
+                        rowStart,
+                        rowEnd,
+                        colStart,
+                        colEnd,
+                    });
                     updateBackBtn(paneIndex);
                 });
             });
@@ -465,7 +472,14 @@ function renderPanes() {
 
                     pane.paneEl.style.gridRow = `${rowStart} / ${rowEnd}`;
                     pane.paneEl.style.gridColumn = `${colStart} / ${colEnd}`;
-                    paneLayoutMap.set(paneIndex, { row: rowStart, col: position + 1 });
+                    paneLayoutMap.set(paneIndex, {
+                        row: rowStart,
+                        col: colStart,
+                        rowStart,
+                        rowEnd,
+                        colStart,
+                        colEnd,
+                    });
                     updateBackBtn(paneIndex);
                 });
             });
@@ -499,7 +513,14 @@ function renderPanes() {
 
         pane.paneEl.style.gridRow = `${rowStart} / ${rowEnd}`;
         pane.paneEl.style.gridColumn = `${colStart} / ${colEnd}`;
-        paneLayoutMap.set(paneIndex, { row, col });
+        paneLayoutMap.set(paneIndex, {
+            row,
+            col,
+            rowStart,
+            rowEnd,
+            colStart,
+            colEnd,
+        });
         updateBackBtn(paneIndex);
     });
 
@@ -516,19 +537,94 @@ function sumRatios(ratios, endExclusive) {
     return total;
 }
 
+function getBoundaryOffsets(ratios) {
+    const offsets = [0];
+    let acc = 0;
+    for (let i = 0; i < ratios.length; i++) {
+        acc += ratios[i];
+        offsets.push(acc);
+    }
+    return offsets;
+}
+
+function buildCellOccupancy() {
+    const cells = Array.from({ length: currentRows }, () => Array.from({ length: currentCols }, () => null));
+    activePanes.forEach((index) => {
+        const pos = paneLayoutMap.get(index);
+        if (!pos) return;
+
+        const rawRowStart = Number.parseInt(pos.rowStart ?? pos.row ?? 1, 10);
+        const rawRowEnd = Number.parseInt(pos.rowEnd ?? (rawRowStart + 1), 10);
+        const rawColStart = Number.parseInt(pos.colStart ?? pos.col ?? 1, 10);
+        const rawColEnd = Number.parseInt(pos.colEnd ?? (rawColStart + 1), 10);
+
+        const rowStart = Math.max(1, Math.min(currentRows, Number.isInteger(rawRowStart) ? rawRowStart : 1));
+        const rowEnd = Math.max(rowStart + 1, Math.min(currentRows + 1, Number.isInteger(rawRowEnd) ? rawRowEnd : (rowStart + 1)));
+        const colStart = Math.max(1, Math.min(currentCols, Number.isInteger(rawColStart) ? rawColStart : 1));
+        const colEnd = Math.max(colStart + 1, Math.min(currentCols + 1, Number.isInteger(rawColEnd) ? rawColEnd : (colStart + 1)));
+
+        for (let row = rowStart - 1; row < rowEnd - 1; row++) {
+            for (let col = colStart - 1; col < colEnd - 1; col++) {
+                cells[row][col] = index;
+            }
+        }
+    });
+    return cells;
+}
+
+function getDividerSegments(cells, type, boundary) {
+    const segments = [];
+
+    if (type === 'col') {
+        let start = null;
+        for (let row = 0; row < currentRows; row++) {
+            const left = cells[row][boundary - 1];
+            const right = cells[row][boundary];
+            const isDivider = left !== null && right !== null && left !== right;
+            if (isDivider && start === null) start = row;
+            if (!isDivider && start !== null) {
+                segments.push({ start, end: row });
+                start = null;
+            }
+        }
+        if (start !== null) segments.push({ start, end: currentRows });
+    } else {
+        let start = null;
+        for (let col = 0; col < currentCols; col++) {
+            const top = cells[boundary - 1][col];
+            const bottom = cells[boundary][col];
+            const isDivider = top !== null && bottom !== null && top !== bottom;
+            if (isDivider && start === null) start = col;
+            if (!isDivider && start !== null) {
+                segments.push({ start, end: col });
+                start = null;
+            }
+        }
+        if (start !== null) segments.push({ start, end: currentCols });
+    }
+
+    return segments;
+}
+
 function startDrag(type, boundary, event) {
     event.preventDefault();
     dragState = { type, boundary };
     document.body.classList.add('is-changing-layout');
 }
 
-function createSplitter(type, boundary, positionPx) {
+function createSplitter(type, boundary, positionPx, segmentStartPx, segmentEndPx) {
     const splitter = document.createElement('div');
     splitter.className = `grid-splitter ${type === 'col' ? 'grid-splitter-v' : 'grid-splitter-h'}`;
     if (type === 'col') {
         splitter.style.left = `${positionPx}px`;
+        splitter.style.top = `${segmentStartPx}px`;
+        splitter.style.height = `${Math.max(0, segmentEndPx - segmentStartPx)}px`;
+        splitter.style.bottom = 'auto';
     } else {
         splitter.style.top = `${positionPx}px`;
+        splitter.style.left = `${segmentStartPx}px`;
+        splitter.style.width = `${Math.max(0, segmentEndPx - segmentStartPx)}px`;
+        splitter.style.right = 'auto';
     }
     splitter.addEventListener('mousedown', (event) => startDrag(type, boundary, event));
     return splitter;
@@ -543,16 +639,30 @@ function renderSplitters() {
     const rect = gridContainer.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return;
 
-    let xAcc = 0;
-    for (let i = 1; i < currentCols; i++) {
-        xAcc += colRatios[i - 1];
-        gridContainer.appendChild(createSplitter('col', i, xAcc * rect.width));
+    const cells = buildCellOccupancy();
+    const colBoundaries = getBoundaryOffsets(colRatios);
+    const rowBoundaries = getBoundaryOffsets(rowRatios);
+
+    for (let boundary = 1; boundary < currentCols; boundary++) {
+        const x = colBoundaries[boundary] * rect.width;
+        const segments = getDividerSegments(cells, 'col', boundary);
+        for (const segment of segments) {
+            const yStart = rowBoundaries[segment.start] * rect.height;
+            const yEnd = rowBoundaries[segment.end] * rect.height;
+            if (yEnd - yStart < 6) continue;
+            gridContainer.appendChild(createSplitter('col', boundary, x, yStart, yEnd));
+        }
     }
 
-    let yAcc = 0;
-    for (let i = 1; i < currentRows; i++) {
-        yAcc += rowRatios[i - 1];
-        gridContainer.appendChild(createSplitter('row', i, yAcc * rect.height));
+    for (let boundary = 1; boundary < currentRows; boundary++) {
+        const y = rowBoundaries[boundary] * rect.height;
+        const segments = getDividerSegments(cells, 'row', boundary);
+        for (const segment of segments) {
+            const xStart = colBoundaries[segment.start] * rect.width;
+            const xEnd = colBoundaries[segment.end] * rect.width;
+            if (xEnd - xStart < 6) continue;
+            gridContainer.appendChild(createSplitter('row', boundary, y, xStart, xEnd));
+        }
     }
 }
 
