@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const SAVED_LAYOUTS_KEY = 'savedLayouts';
   const SPLIT_TAB_STATES_KEY = 'splitTabStates';
   const PENDING_LAYOUT_STATE_KEY = 'pendingLayoutState';
+  const LAST_SESSION_KEY = 'lastSession';
 
   const splitBtn = document.getElementById('splitBtn');
   const dualBtn = document.getElementById('dualBtn');
@@ -11,6 +12,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const resetHint = document.getElementById('resetHint');
   const toggleNav = document.getElementById('toggleNav');
   const darkMode = document.getElementById('darkMode');
+  const restoreSessionBtn = document.getElementById('restoreSessionBtn');
+  const sessionHint = document.getElementById('sessionHint');
 
   const layoutNameInput = document.getElementById('layoutNameInput');
   const saveLayoutBtn = document.getElementById('saveLayoutBtn');
@@ -291,6 +294,59 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadLayoutBtn.addEventListener('click', loadSelectedLayout);
   deleteLayoutBtn.addEventListener('click', deleteSelectedLayout);
 
+  // --- Session Restore ---
+  const updateSessionState = async () => {
+    const result = await chrome.storage.local.get([LAST_SESSION_KEY]);
+    const lastSession = result[LAST_SESSION_KEY];
+
+    if (!lastSession || !Array.isArray(lastSession.urls) || lastSession.urls.length === 0) {
+      restoreSessionBtn.disabled = true;
+      sessionHint.textContent = 'No previous session found.';
+      return;
+    }
+
+    restoreSessionBtn.disabled = false;
+    const paneCount = lastSession.count || lastSession.urls.length;
+    const closedAt = lastSession.closedAt ? new Date(lastSession.closedAt) : null;
+    const timeStr = closedAt
+      ? closedAt.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : 'Unknown';
+    sessionHint.textContent = `${paneCount} panes · Closed ${timeStr}`;
+  };
+
+  restoreSessionBtn.addEventListener('click', async () => {
+    const result = await chrome.storage.local.get([LAST_SESSION_KEY]);
+    const lastSession = result[LAST_SESSION_KEY];
+
+    if (!lastSession || !Array.isArray(lastSession.urls) || lastSession.urls.length === 0) {
+      sessionHint.textContent = 'Session expired or empty.';
+      restoreSessionBtn.disabled = true;
+      return;
+    }
+
+    const urls = lastSession.urls.filter(url => Boolean(url) && url !== 'about:blank').slice(0, 16);
+    if (urls.length === 0) {
+      sessionHint.textContent = 'No valid URLs in last session.';
+      return;
+    }
+
+    const savedCount = Number.isInteger(lastSession.count) ? lastSession.count : urls.length;
+    const count = Math.min(16, Math.max(1, savedCount, urls.length));
+    const mode = lastSession.mode === 'dual' && count === 2 ? 'dual' : 'quad';
+
+    await launch(mode, count, urls, lastSession.grid ? {
+      mode,
+      count,
+      activePaneIndices: lastSession.activePaneIndices,
+      closePackDirection: lastSession.closePackDirection,
+      packByAxis: Boolean(lastSession.packByAxis),
+      grid: lastSession.grid,
+      paneLayout: lastSession.paneLayout,
+    } : null);
+    window.close();
+  });
+
   await renderSavedLayouts();
   await updateResetState();
+  await updateSessionState();
 });
