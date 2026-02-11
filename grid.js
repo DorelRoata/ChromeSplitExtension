@@ -270,6 +270,13 @@ function createPane(index, url) {
     closeHorizontalBtn.addEventListener('click', () => closePane(index, 'horizontal'));
     closeVerticalBtn.addEventListener('click', () => closePane(index, 'vertical'));
 
+    // Detect in-frame navigation: when user clicks a link inside the iframe,
+    // the load event fires. We then query getAllFrames() to get the real URL.
+    frameEl.addEventListener('load', () => {
+        // Small delay to let webNavigation data settle
+        setTimeout(() => syncAllFrameUrls(), 150);
+    });
+
     loadFrame(index, url || 'about:blank', true);
 }
 
@@ -784,77 +791,85 @@ window.addEventListener('resize', () => renderSplitters());
 
 // --- webNavigation: track in-frame URL changes ---
 
-async function buildFrameMap() {
+// Syncs URLs from getAllFrames() into our pane address bars.
+// Called whenever an iframe fires its 'load' event (i.e. user clicked a link inside).
+let syncDebounceTimer = null;
+
+async function syncAllFrameUrls() {
     if (!currentTabId) return;
     try {
         const frames = await chrome.webNavigation.getAllFrames({ tabId: currentTabId });
         if (!frames) return;
 
-        frameIdToPaneIndex.clear();
-        paneIndexToFrameId.clear();
+        // Direct child frames of the main page, sorted by frameId (creation order = pane order)
+        const childFrames = frames
+            .filter(f => f.parentFrameId === 0 && f.frameId !== 0)
+            .sort((a, b) => a.frameId - b.frameId);
 
-        // Get direct child frames of the main page (parentFrameId === 0)
-        const childFrames = frames.filter(f => f.parentFrameId === 0 && f.frameId !== 0);
+        const orderedPanes = Array.from(activePanes).sort((a, b) => a - b);
 
-        // Match each child frame to a pane by comparing URLs
-        const matchedPanes = new Set();
-        for (const frame of childFrames) {
-            for (const [index, pane] of panes) {
-                if (matchedPanes.has(index)) continue;
-                if (!activePanes.has(index)) continue;
-                const knownUrl = pane.inputEl.value || pane.frameEl.src;
-                if (knownUrl === frame.url || pane.frameEl.src === frame.url) {
-                    frameIdToPaneIndex.set(frame.frameId, index);
-                    paneIndexToFrameId.set(index, frame.frameId);
-                    matchedPanes.add(index);
-                    break;
-                }
+        let anyChanged = false;
+
+        for (let i = 0; i < Math.min(orderedPanes.length, childFrames.length); i++) {
+            const paneIndex = orderedPanes[i];
+            const frame = childFrames[i];
+            const pane = panes.get(paneIndex);
+            if (!pane) continue;
+
+            // Update frame map
+            frameIdToPaneIndex.set(frame.frameId, paneIndex);
+            paneIndexToFrameId.set(paneIndex, frame.frameId);
+
+            const currentUrl = pane.inputEl.value;
+            const newUrl = frame.url;
+
+            // Skip if URL hasn't changed or is blank
+            if (!newUrl || newUrl === 'about:blank' || newUrl === currentUrl) continue;
+
+            // Push old URL to nav history for back button
+            if (currentUrl && currentUrl !== 'about:blank') {
+                navHistory[paneIndex].push(currentUrl);
+                updateBackBtn(paneIndex);
             }
+
+            // Update address bar
+            pane.inputEl.value = newUrl;
+            persistPaneUrl(paneIndex, newUrl);
+            anyChanged = true;
         }
 
-        // Fallback: match remaining frames to remaining panes by order
-        if (matchedPanes.size < activePanes.size) {
-            const unmatchedFrames = childFrames.filter(f => !frameIdToPaneIndex.has(f.frameId));
-            const unmatchedPanes = Array.from(activePanes).filter(i => !matchedPanes.has(i)).sort((a, b) => a - b);
-            for (let i = 0; i < Math.min(unmatchedFrames.length, unmatchedPanes.length); i++) {
-                frameIdToPaneIndex.set(unmatchedFrames[i].frameId, unmatchedPanes[i]);
-                paneIndexToFrameId.set(unmatchedPanes[i], unmatchedFrames[i].frameId);
-            }
+        if (anyChanged) {
+            persistCurrentTabState();
         }
     } catch (e) {
-        // webNavigation may not be available in all contexts
+        // webNavigation may fail silently in some edge cases
     }
 }
 
-// Listen for navigation commits inside our iframes
+// Also keep onCommitted as a secondary fallback
 if (chrome.webNavigation && chrome.webNavigation.onCommitted) {
     chrome.webNavigation.onCommitted.addListener((details) => {
-        if (details.frameId === 0) return; // skip main frame
-        if (details.tabId !== currentTabId) return; // not our tab
+        if (details.frameId === 0) return;
+        if (details.tabId !== currentTabId) return;
 
         const paneIndex = frameIdToPaneIndex.get(details.frameId);
-        if (paneIndex === undefined || !activePanes.has(paneIndex)) {
-            // Unknown frame — rebuild the map
-            buildFrameMap();
-            return;
+        if (paneIndex !== undefined && activePanes.has(paneIndex)) {
+            const pane = panes.get(paneIndex);
+            if (pane) {
+                const oldUrl = pane.inputEl.value;
+                const newUrl = details.url;
+                if (oldUrl && oldUrl !== 'about:blank' && oldUrl !== newUrl) {
+                    navHistory[paneIndex].push(oldUrl);
+                    updateBackBtn(paneIndex);
+                }
+                pane.inputEl.value = newUrl;
+                persistPaneUrl(paneIndex, newUrl);
+                persistCurrentTabState();
+            }
+        } else {
+            // Unknown frame — trigger a full sync
+            syncAllFrameUrls();
         }
-
-        const pane = panes.get(paneIndex);
-        if (!pane) return;
-
-        const oldUrl = pane.inputEl.value;
-        const newUrl = details.url;
-
-        // Push old URL to nav history for back button
-        if (oldUrl && oldUrl !== 'about:blank' && oldUrl !== newUrl) {
-            navHistory[paneIndex].push(oldUrl);
-            updateBackBtn(paneIndex);
-        }
-
-        // Update address bar and persist
-        pane.inputEl.value = newUrl;
-        persistPaneUrl(paneIndex, newUrl);
-        persistCurrentTabState();
     });
 }
 
@@ -889,6 +904,6 @@ chrome.storage.local.get(['splitUrls', PENDING_LAYOUT_STATE_KEY], (result) => {
     applySettings();
     persistCurrentTabState();
 
-    // Build frame map after iframes have had a moment to load
-    setTimeout(() => buildFrameMap(), 2000);
+    // Initial frame map build after iframes have loaded
+    setTimeout(() => syncAllFrameUrls(), 2000);
 });
