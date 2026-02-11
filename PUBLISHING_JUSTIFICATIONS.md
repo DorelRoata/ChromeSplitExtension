@@ -32,6 +32,10 @@ The `tabs` permission is required for:
 - Detecting the active split tab when applying actions like reset
 - Maintaining split-tab state for save/load reliability
 
+### webNavigation
+**Justification:**
+The `webNavigation` permission is used to track URL changes that occur inside split-view panes when users click links within framed websites. This allows the address bar in each pane to stay accurate and enables the extension to save and restore the correct URLs for session recovery. We do not log, transmit, or use browsing data for any purpose beyond updating the pane address bar and local session state.
+
 ### Remote Code Use
 **Answer:**
 No, this extension does not use remote code. All logic is contained within the extension package.
