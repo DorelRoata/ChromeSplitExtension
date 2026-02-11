@@ -38,11 +38,8 @@ Split View lets you run multiple websites inside a single Chrome tab.
 
 
 ## Compatibility + Security Considerations (Important)
-The split panes intentionally do **not** use the iframe `sandbox` attribute.
-
-Why:
-- To support modern site login/session behavior (cookies, storage, OAuth flows).
-- A sandbox that includes both `allow-scripts` and `allow-same-origin` is treated as unsafe/effectively non-isolating and can trigger browser security warnings.
+With iframe sandbox now including `allow-same-origin`, more websites can complete login/session flows because
+cookies and `localStorage` are available inside panes.
 
 Please validate these cases before release:
 - Login flows that use redirects and popup windows (Google, Microsoft, Shopify admin, etc.).
@@ -54,12 +51,18 @@ Known limitations that can still occur:
 - Server-side CORS policies still apply for requests made by framed page scripts.
 - OAuth providers may require a top-level tab for final callback completion.
 
+Risk tradeoff:
+- `allow-same-origin` improves compatibility, but it lowers iframe isolation compared with a stricter sandbox.
+- Keep `allow-top-navigation` disabled to reduce risk of framed pages navigating the split-view tab unexpectedly.
+- Re-test any declarativeNetRequest header modifications whenever Chrome or target sites change behavior.
+
 Recommended release checklist:
 1. Verify login/logout on at least 5 representative modern sites.
 2. Verify address bar navigation, back, and reload still behave correctly after authentication.
 3. Verify popup-based auth closes cleanly and session remains in pane.
 4. Verify no unexpected navigation of the top extension tab.
 5. Monitor console for recurring `SecurityError`, CORS, or React hydration/runtime failures.
+
 ## Data Stored Locally
 - UI preferences: dark mode, nav visibility.
 - Current split URLs.
