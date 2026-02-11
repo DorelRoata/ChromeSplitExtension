@@ -36,6 +36,30 @@ Split View lets you run multiple websites inside a single Chrome tab.
 - `Alt+D`: launch dual view.
 - `Alt+H`: toggle nav bar visibility.
 
+
+## Compatibility + Security Considerations (Important)
+The split panes intentionally do **not** use the iframe `sandbox` attribute.
+
+Why:
+- To support modern site login/session behavior (cookies, storage, OAuth flows).
+- A sandbox that includes both `allow-scripts` and `allow-same-origin` is treated as unsafe/effectively non-isolating and can trigger browser security warnings.
+
+Please validate these cases before release:
+- Login flows that use redirects and popup windows (Google, Microsoft, Shopify admin, etc.).
+- Sites that depend on third-party cookies (Chrome cookie policy can still block these regardless of extension logic).
+- Checkout/payment flows that may intentionally block embedding or use anti-clickjacking checks.
+
+Known limitations that can still occur:
+- Some sites will still refuse to function when framed due to runtime frame-busting logic.
+- Server-side CORS policies still apply for requests made by framed page scripts.
+- OAuth providers may require a top-level tab for final callback completion.
+
+Recommended release checklist:
+1. Verify login/logout on at least 5 representative modern sites.
+2. Verify address bar navigation, back, and reload still behave correctly after authentication.
+3. Verify popup-based auth closes cleanly and session remains in pane.
+4. Verify no unexpected navigation of the top extension tab.
+5. Monitor console for recurring `SecurityError`, CORS, or React hydration/runtime failures.
 ## Data Stored Locally
 - UI preferences: dark mode, nav visibility.
 - Current split URLs.

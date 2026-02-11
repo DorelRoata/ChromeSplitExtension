@@ -221,7 +221,8 @@ function createPane(index, url) {
 
     const frameEl = document.createElement('iframe');
     frameEl.id = `frame-${index}`;
-    frameEl.setAttribute('sandbox', 'allow-forms allow-scripts allow-popups allow-modals');
+    // Do not set iframe sandbox here: combining allow-scripts + allow-same-origin makes sandboxing ineffective
+    // and triggers security warnings. We rely on normal browser origin isolation for cross-site frames.
 
     omniboxWrapper.appendChild(inputEl);
     navEl.appendChild(backBtn);
